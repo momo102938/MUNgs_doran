@@ -17,13 +17,15 @@ const managedLinux = readExecutionProfile() === "managed-linux";
 
 const localBindingConfig = {
   main: "./worker/index.ts",
+  name: "mungs-doran",
+  compatibility_date: "2026-10-27",
   compatibility_flags: ["nodejs_compat"],
   d1_databases: d1
     ? [
         {
           binding: d1,
-          database_name: "site-creator-d1",
-          database_id: SITE_CREATOR_PLACEHOLDER_DATABASE_ID,
+          database_name: process.env.DORAN_D1_DATABASE_NAME || "doran-db",
+          database_id: process.env.DORAN_D1_DATABASE_ID || SITE_CREATOR_PLACEHOLDER_DATABASE_ID,
         },
       ]
     : [],

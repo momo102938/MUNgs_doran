@@ -1,60 +1,32 @@
 # GitHub에 도란 올리기
 
-1. ZIP 압축을 풉니다.
-2. GitHub에서 새 저장소를 만듭니다. 이름 예: `doran`.
-3. `doran` 폴더 안의 파일들을 저장소 최상위에 올립니다. ZIP 파일 자체를 올리는 것이 아닙니다.
-4. `package.json`, `app`, `lib`, `db`, `drizzle`, `scripts` 등이 최상위에 보이면 됩니다.
+1. ZIP 압축을 풀어요.
+2. GitHub 저장소를 만들어요.
+3. ZIP 자체가 아니라 `doran` 폴더 안의 파일과 폴더를 저장소 최상위에 올려요.
+4. `.gitignore`, `.env.example`, `.openai/hosting.json` 등 숨김 파일도 포함해 주세요.
 
-숨김 파일인 `.gitignore`, `.env.example`, `.openai/hosting.json`도 포함해야 합니다. Git으로 올리면 빠뜨리지 않을 수 있습니다.
+## Cloudflare에서 웹으로 실행하기
 
-```sh
-cd doran
-git init
-git add .
-git commit -m "Add Doran life simulation"
-git branch -M main
-git remote add origin https://github.com/YOUR_USERNAME/doran.git
-git push -u origin main
-```
+이 프로젝트는 서버 API와 D1 데이터베이스를 사용합니다. GitHub Pages 또는 Cloudflare의 **Upload your static files**로는 동작하지 않습니다.
 
-`YOUR_USERNAME`을 본인 GitHub 아이디로 바꾸세요. 이미 Git 저장소가 있다면 새로 초기화하지 말고 기존 저장소에 파일을 복사해 커밋하세요.
+1. Cloudflare에서 **Storage & databases → D1 SQL Database**로 가서 `doran-db`를 만들고 Database ID를 복사합니다.
+2. **Workers & Pages → Create application → Continue with GitHub**에서 `MUNgs_doran`을 선택합니다.
+3. Project name은 `mungs-doran`, Build command는 `pnpm run build`, Deploy command는 `pnpm run deploy`로 둡니다. Preview builds는 끕니다.
+4. 배포 설정의 Build variables에 `DORAN_D1_DATABASE_ID`를 만들고 1번에서 복사한 ID를 입력합니다.
+5. Worker의 **Settings → Variables and Secrets**에서 `AI_VAULT_SECRET`, `SESSION_SECRET`을 Secret으로 추가합니다. `AI_VAULT_SECRET`은 32바이트 난수의 64자리 hex이고, `SESSION_SECRET`은 충분히 긴 임의 문자열이어야 합니다. 이 값은 GitHub에 올리지 않습니다.
+6. Deploy를 누릅니다. 배포 스크립트가 D1 마이그레이션을 적용한 뒤 Worker를 배포합니다. 성공하면 `*.workers.dev` 주소에서 확인합니다.
 
 ## 로컬 실행
 
-Node.js 22.13 이상과 package.json에 명시된 pnpm 버전을 사용합니다.
+Node 22.13 이상과 pnpm이 필요합니다.
 
 ```sh
 pnpm install
+pnpm exec drizzle-kit generate
+pnpm dev
 pnpm build
 ```
 
-최초 실행에서 로컬 DB 테이블을 만듭니다. 각 마이그레이션은 한 번만 적용합니다.
+## 보안 메모
 
-```sh
-node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0000_brainy_imperial_guard.sql
-node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0001_lucky_the_fury.sql
-pnpm dev
-```
-
-터미널에 표시되는 로컬 주소를 엽니다.
-
-```sh
-pnpm test
-pnpm typecheck
-```
-
-## GitHub 저장과 웹 배포는 다릅니다
-
-이 소스는 React/Vinext + Cloudflare Workers/D1 구조입니다. **GitHub Pages만으로는 AI 키 저장·AI 요청·세계 서버 저장이 동작하지 않습니다.**
-
-현재 로그인과 빌드에는 ChatGPT Sites 연동 코드가 포함되어 있습니다. 다른 호스팅에 운영 배포하려면 Cloudflare D1 연결과 마이그레이션, 서버 비밀값 설정에 더해 인증 연동을 해당 환경에 맞춰 교체해야 합니다. 이 ZIP은 다른 호스팅으로의 즉시 배포를 보장하는 템플릿이 아닙니다.
-
-기존 Sites의 프로젝트 ID는 제거했습니다. 기존 사이트와 연결하지 않고 새 소스 저장소로 사용할 수 있습니다. 기존 사이트의 배포 설정은 변경하지 않았습니다.
-
-## API 키와 로그인
-
-서버의 `AI_VAULT_SECRET`은 임의의 32바이트 키를 64자리 hex로 생성해 비밀값으로 설정합니다. 실제 값은 저장소에 올리지 마세요. `.env.example`에는 이름만 기재되어 있습니다.
-
-AI 키는 실행 중인 사이트에서 본인 계정으로 로그인한 뒤 **AI 연결** 메뉴에서 등록합니다. 인증되지 않은 사용자는 AI 키를 등록할 수 없습니다. Sites 밖에서 배포할 때는 `app/chatgpt-auth.ts`와 호스트의 신뢰할 수 있는 인증 경계를 반드시 맞춰야 합니다. 외부 요청이 인증 헤더를 직접 지정할 수 있는 상태로 공개하면 안 됩니다.
-
-서버 DB의 저장된 세계·암호화된 API 키·사용자의 이미지와 대화 데이터는 ZIP에 포함되어 있지 않습니다. 기본 예제 캐릭터와 코드만 포함합니다.
+방문자의 API 키는 Worker가 사용자별 서명 쿠키 ID로 연결하고, D1에는 `AI_VAULT_SECRET`으로 암호화해 저장합니다. 실제 API 키와 두 서버 secret을 GitHub에 커밋하지 마세요. 공개 운영 전에는 rate limit과 사용량 예산을 설정하세요.
